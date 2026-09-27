@@ -1,0 +1,8 @@
+NAME="BURMAL-DOS"
+ID=burmal-dos
+ID_LIKE=burmal-dos
+VERSION="0.1.0"
+VERSION_ID=0.1.0
+PRETTY_NAME="BURMAL-DOS 0.1.0"
+HOME_URL="https://example.invalid/burmal-dos"
+BUG_REPORT_URL="https://example.invalid/burmal-dos/issues"

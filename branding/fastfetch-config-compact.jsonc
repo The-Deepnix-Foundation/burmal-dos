@@ -1,0 +1,19 @@
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+  "logo": {
+    "type": "file",
+    "source": "/usr/share/burmal-dos/fastfetch-logo-compact.txt",
+    "position": "top",
+    "color": { "1": "green" },
+    "padding": { "bottom": 0 }
+  },
+  "display": {
+    "separator": ": ",
+    "color": { "keys": "magenta", "title": "green" }
+  },
+  "modules": [
+    "title", "separator",
+    { "type": "os", "key": "OS", "format": "{name} {version} ({arch})" },
+    "kernel", "uptime", "packages", "shell", "terminal", "memory", "disk", "locale"
+  ]
+}

@@ -1,0 +1,10 @@
+#!/bin/sh
+if ! command -v startx >/dev/null 2>&1; then
+    echo "The graphical packages are missing. Install them with: sudo dpx install xorg-server xinit xrandr spice-vdagent xf86-input-libinput xf86-video-vesa python3 python3-tkinter" >&2
+    exit 1
+fi
+if [ ! -r /usr/share/burmal-dos/burmal-gui.py ]; then
+    echo "BURMAL-DOS graphical shell files are missing." >&2
+    exit 1
+fi
+exec startx /usr/local/libexec/burmal-gui-session -- -nolisten tcp

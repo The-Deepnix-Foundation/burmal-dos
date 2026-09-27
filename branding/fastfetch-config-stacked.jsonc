@@ -1,0 +1,20 @@
+{
+  "$schema": "https://githubusercontent.com",
+  "logo": {
+    "type": "file",
+    "source": "/usr/share/burmal-dos/fastfetch-logo.txt",
+    "position": "top",
+    "color": { "1": "green" },
+    "padding": { "bottom": 0 }
+  },
+  "display": {
+    "separator": ": ",
+    "color": { "keys": "magenta", "title": "green" }
+  },
+  "modules": [
+    "title", "separator",
+    { "type": "os", "key": "OS", "format": "{name} {version} ({arch})" },
+    "host", "kernel", "uptime", "packages", "shell", "terminal",
+    "cpu", "gpu", "memory", "swap", "disk", "localip", "locale", "colors"
+  ]
+}

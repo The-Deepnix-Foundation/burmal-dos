@@ -1,0 +1,11 @@
+#!/bin/sh
+# BURMAL-DOS stage-one startup message.
+PATH=/usr/bin:/usr/sbin
+. /etc/runit/functions
+msg "Welcome to burmal-dos!"
+[ -r /etc/rc.conf ] && . /etc/rc.conf
+detect_container
+for f in /etc/runit/core-services/*.sh; do
+    [ -r "$f" ] && . "$f"
+done
+msg "Initialization complete, running stage 2..."

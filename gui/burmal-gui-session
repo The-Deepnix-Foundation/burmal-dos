@@ -1,0 +1,10 @@
+#!/bin/sh
+if command -v xrandr >/dev/null 2>&1; then
+    xrandr --auto >/dev/null 2>&1 || true
+fi
+
+if [ -e /dev/virtio-ports/com.redhat.spice.0 ] && command -v spice-vdagent >/dev/null 2>&1; then
+    spice-vdagent >/dev/null 2>&1 &
+fi
+
+exec /usr/bin/python3 /usr/share/burmal-dos/burmal-gui.py

@@ -1,0 +1,8 @@
+# BURMAL-DOS package channels.  All channels use the distribution signing key.
+# The main channel contains the base system and fastfetch.
+repository=${BURMAL_REPOSITORY}
+# Additional official packages, including firmware and redistributable software.
+repository=${BURMAL_REPOSITORY}/nonfree
+# 32-bit compatibility libraries for x86_64 installations.
+repository=${BURMAL_REPOSITORY}/multilib
+repository=${BURMAL_REPOSITORY}/multilib/nonfree

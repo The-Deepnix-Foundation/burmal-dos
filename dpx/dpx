@@ -1,0 +1,220 @@
+#!/usr/bin/env bash
+#
+# dpx — пакетный менеджер BURMAL-DOS
+# -----------------------------------
+# dpx НЕ является собственной реализацией пакетного менеджера с нуля.
+# Это тонкая, единая для всей системы обёртка над реальным движком
+# управления пакетами, зашитым в BURMAL-DOS (по умолчанию — XBPS;
+# совместимость с apk/apt/dnf/pacman сохранена для других систем).
+#
+# Пользователь всегда работает с одним и тем же интерфейсом:
+#   sudo dpx install <pkg>
+#   sudo dpx remove  <pkg>
+#   dpx   search <pkg>
+#   sudo dpx update / upgrade
+#
+# а какой движок стоит "под капотом" — для пользователя не важно.
+
+set -euo pipefail
+
+DPX_VERSION="0.1.0"
+DPX_CONF="/etc/dpx/dpx.conf"
+DPX_LOG="/var/log/dpx.log"
+
+# ---------- Цвета (в стиле лого BURMAL-DOS: чёрный фон, зелёный текст) ----------
+C_GREEN="\033[1;32m"
+C_DIM="\033[0;32m"
+C_RED="\033[1;31m"
+C_YELLOW="\033[1;33m"
+C_BOLD="\033[1m"
+C_RESET="\033[0m"
+
+log()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >>"$DPX_LOG" 2>/dev/null || true; }
+info() { printf '%b\n' "${C_GREEN}==>${C_RESET} $*"; }
+warn() { printf '%b\n' "${C_YELLOW}!!${C_RESET} $*"; }
+err()  { printf '%b\n' "${C_RED}xx${C_RESET} $*" >&2; }
+
+need_root() {
+    if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+        err "Command '$1' requires root. Run: sudo dpx $1 ..."
+        exit 1
+    fi
+}
+
+# ---------- Определение бэкенда ----------
+# Порядок:
+#   1. Явное указание в /etc/dpx/dpx.conf   (DPX_BACKEND=xbps)
+#   2. Переменная окружения DPX_BACKEND
+#   3. Автоопределение по наличию бинарника в системе
+detect_backend() {
+    if [[ -f "$DPX_CONF" ]]; then
+        # shellcheck disable=SC1090
+        source "$DPX_CONF"
+    fi
+    if [[ -n "${DPX_BACKEND:-}" ]]; then
+        echo "$DPX_BACKEND"
+        return 0
+    fi
+    for candidate in xbps apk apt dnf pacman; do
+        case "$candidate" in
+            apt) bin=apt-get ;;
+            # XBPS names its client binaries by operation; there is no
+            # executable named simply "xbps" on BURMAL-DOS.
+            xbps) bin=xbps-install ;;
+            *)   bin=$candidate ;;
+        esac
+        if command -v "$bin" >/dev/null 2>&1; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    err "No supported package manager was found (xbps/apk/apt/dnf/pacman)."
+    err "Check /etc/dpx/dpx.conf or the system installation."
+    exit 1
+}
+
+BACKEND="$(detect_backend)"
+
+usage() {
+    cat <<EOF
+${C_BOLD}dpx${C_RESET} ${DPX_VERSION} — BURMAL-DOS package manager (backend: ${C_GREEN}${BACKEND}${C_RESET})
+
+Usage:
+  dpx install <pkg> [pkg2 ...]   Install package(s)
+  dpx remove  <pkg> [pkg2 ...]   Remove package(s)
+  dpx search  <query>            Search package repositories
+  dpx update                     Update package indexes
+  dpx upgrade                    Upgrade installed packages
+  dpx list                       List installed packages
+  dpx info    <pkg>              Show package details
+  dpx backend                    Show the active backend
+  dpx -v, --version              Show dpx version
+  dpx -h, --help                 Show this help
+
+Examples:
+  sudo dpx install fastfetch
+  sudo dpx remove htop
+  dpx search neofetch
+  sudo dpx update && sudo dpx upgrade
+EOF
+}
+
+# ---------- Транслятор команд в конкретный движок ----------
+run_backend() {
+    local action="$1"; shift || true
+    case "$BACKEND" in
+        apk)
+            case "$action" in
+                install) apk add "$@" ;;
+                remove)  apk del "$@" ;;
+                search)  apk search -v "$@" ;;
+                update)  apk update ;;
+                upgrade) apk upgrade ;;
+                list)    apk info ;;
+                info)    apk info -a "$@" ;;
+            esac ;;
+        xbps)
+            case "$action" in
+                install) xbps-install -Sy "$@" ;;
+                remove)  xbps-remove -Ry "$@" ;;
+                search)  xbps-query -Rs "$(printf '%s ' "$@")" ;;
+                update)  xbps-install -S ;;
+                upgrade) xbps-install -Su ;;
+                list)    xbps-query -l ;;
+                info)    xbps-query -RS "$@" ;;
+            esac ;;
+        apt)
+            case "$action" in
+                install) apt-get install -y "$@" ;;
+                remove)  apt-get remove -y "$@" ;;
+                search)  apt-cache search "$(printf '%s ' "$@")" ;;
+                update)  apt-get update ;;
+                upgrade) apt-get upgrade -y ;;
+                list)    apt list --installed 2>/dev/null ;;
+                info)    apt-cache show "$@" ;;
+            esac ;;
+        dnf)
+            case "$action" in
+                install) dnf install -y "$@" ;;
+                remove)  dnf remove -y "$@" ;;
+                search)  dnf search "$(printf '%s ' "$@")" ;;
+                update)  dnf check-update || true ;;
+                upgrade) dnf upgrade -y ;;
+                list)    dnf list installed ;;
+                info)    dnf info "$@" ;;
+            esac ;;
+        pacman)
+            case "$action" in
+                install) pacman -S --noconfirm "$@" ;;
+                remove)  pacman -R --noconfirm "$@" ;;
+                search)  pacman -Ss "$(printf '%s ' "$@")" ;;
+                update)  pacman -Sy ;;
+                upgrade) pacman -Syu --noconfirm ;;
+                list)    pacman -Q ;;
+                info)    pacman -Si "$@" ;;
+            esac ;;
+        *)
+            err "Unsupported backend: $BACKEND"
+            exit 1 ;;
+    esac
+}
+
+[[ $# -eq 0 ]] && { usage; exit 1; }
+
+cmd="$1"; shift || true
+
+case "$cmd" in
+    install)
+        [[ $# -eq 0 ]] && { err "Specify at least one package: dpx install <pkg>"; exit 1; }
+        need_root install
+        info "Installing with ${BACKEND}: $*"
+        log "install $* backend=$BACKEND"
+        run_backend install "$@"
+        info "Done: installed $*."
+        ;;
+    remove)
+        [[ $# -eq 0 ]] && { err "Specify at least one package: dpx remove <pkg>"; exit 1; }
+        need_root remove
+        info "Removing with ${BACKEND}: $*"
+        log "remove $* backend=$BACKEND"
+        run_backend remove "$@"
+        info "Done: removed $*."
+        ;;
+    search)
+        [[ $# -eq 0 ]] && { err "Specify a search term: dpx search <query>"; exit 1; }
+        run_backend search "$@"
+        ;;
+    update)
+        need_root update
+        info "Updating package indexes (${BACKEND})..."
+        log "update backend=$BACKEND"
+        run_backend update
+        ;;
+    upgrade)
+        need_root upgrade
+        info "Upgrading the system (${BACKEND})..."
+        log "upgrade backend=$BACKEND"
+        run_backend upgrade
+        ;;
+    list)
+        run_backend list
+        ;;
+    info)
+        [[ $# -eq 0 ]] && { err "Specify a package: dpx info <pkg>"; exit 1; }
+        run_backend info "$@"
+        ;;
+    backend)
+        echo "$BACKEND"
+        ;;
+    -v|--version)
+        echo "dpx $DPX_VERSION"
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        err "Unknown command: $cmd"
+        usage
+        exit 1
+        ;;
+esac
