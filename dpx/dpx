@@ -1,27 +1,10 @@
 #!/usr/bin/env bash
-#
-# dpx — пакетный менеджер BURMAL-DOS
-# -----------------------------------
-# dpx НЕ является собственной реализацией пакетного менеджера с нуля.
-# Это тонкая, единая для всей системы обёртка над реальным движком
-# управления пакетами, зашитым в BURMAL-DOS (по умолчанию — XBPS;
-# совместимость с apk/apt/dnf/pacman сохранена для других систем).
-#
-# Пользователь всегда работает с одним и тем же интерфейсом:
-#   sudo dpx install <pkg>
-#   sudo dpx remove  <pkg>
-#   dpx   search <pkg>
-#   sudo dpx update / upgrade
-#
-# а какой движок стоит "под капотом" — для пользователя не важно.
-
 set -euo pipefail
 
 DPX_VERSION="0.1.0"
 DPX_CONF="/etc/dpx/dpx.conf"
 DPX_LOG="/var/log/dpx.log"
 
-# ---------- Цвета (в стиле лого BURMAL-DOS: чёрный фон, зелёный текст) ----------
 C_GREEN="\033[1;32m"
 C_DIM="\033[0;32m"
 C_RED="\033[1;31m"
@@ -41,11 +24,6 @@ need_root() {
     fi
 }
 
-# ---------- Определение бэкенда ----------
-# Порядок:
-#   1. Явное указание в /etc/dpx/dpx.conf   (DPX_BACKEND=xbps)
-#   2. Переменная окружения DPX_BACKEND
-#   3. Автоопределение по наличию бинарника в системе
 detect_backend() {
     if [[ -f "$DPX_CONF" ]]; then
         # shellcheck disable=SC1090
@@ -99,7 +77,6 @@ Examples:
 EOF
 }
 
-# ---------- Транслятор команд в конкретный движок ----------
 run_backend() {
     local action="$1"; shift || true
     case "$BACKEND" in
